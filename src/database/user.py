@@ -1,5 +1,6 @@
 import enum
 from sqlalchemy import Column, Integer, SmallInteger, text
+from sqlalchemy.orm import relationship
 
 from . import Base
 
@@ -15,6 +16,8 @@ class User(Base):
     id = Column(Integer, nullable=False, primary_key=True)
     telegram_id = Column(Integer, nullable=False, unique=True, index=True)
     role = Column(SmallInteger, default=ROLE_STUDENT, nullable=False)
+
+    events = relationship('Event', back_populates="recipient")
 
     def __repr__(self):
         role_strs = ["ADMIN", "INFO_SOURCE", "STUDENT"]
