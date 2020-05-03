@@ -1,30 +1,38 @@
-import enum
-from sqlalchemy import Column, Integer, SmallInteger, text
+from sqlalchemy import Column, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
 from . import Base
-
-
-ROLE_ADMIN = 0
-ROLE_INFO_SOURCE = 1
-ROLE_STUDENT = 2
+from . import user_to_event
 
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, nullable=False, primary_key=True)
-    telegram_id = Column(Integer, nullable=False, unique=True, index=True)
-    role = Column(SmallInteger, nullable=False, default=ROLE_STUDENT)
+    telegram_id = Column(Integer, nullable=False)
 
-    events = relationship('Event', back_populates="recipient")
+    can_post = Column(Boolean, nullable=False, default=False)
+    can_create_subgroups = Column(Boolean, nullable=False, default=False)
+    can_invite_admins = Column(Boolean, nullable=False, default=False)
+    can_invite_posters = Column(Boolean, nullable=False, default=False)
+    can_invite_students = Column(Boolean, nullable=False, default=False)
+
+    events = relationship("Event", secondary=user_to_event, back_populates="users")
+
+    course_id = Column(Integer, ForeignKey("courses.id"))
+    course = relationship("Course", back_populates="users")
 
     def __repr__(self):
-        role_strs = ["ADMIN", "INFO_SOURCE", "STUDENT"]
-        role_str = "UNKNOWN"
-        if self.role is None:
-            role_str = "UNCOMMITED"
-        elif 0 <= self.role <= 2:
-            role_str = role_strs[self.role]
+        capabilities = list()
+        if self.can_post:
+            capabilities.append("post")
+        if self.can_invite_admins:
+            capabilities.append("invite admins")
+        if self.can_invite_posters:
+            capabilities.append("invite posters")
+        if self.can_invite_students:
+            capabilities.append("invite students")
+        if len(capabilities) > 0:
+            capabilities = [""] + capabilities
 
-        return f"<User tg_id={self.telegram_id} role={role_str}>"
+        return f"<User tg_id={self.telegram_id}{' '.join(capabilities)}>"

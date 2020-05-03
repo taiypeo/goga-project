@@ -1,6 +1,7 @@
 bot_test/*
 .vscode/*
 db.sqlite
+mock_database.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
