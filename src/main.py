@@ -2,6 +2,26 @@ import logging
 import os
 import sys
 import telegram
+import time
+
+
+def test_db():
+    from database import session, User, Event
+
+    u = User(telegram_id=str(int(time.time())))
+    print(u)
+
+    session.add(u)
+    for i in range(7):
+        e = Event(expired=(i % 2 == 0))
+        session.add(e)
+        u.events.append(e)
+    session.commit()
+
+    print(*Event.upcoming_events(session, 2), sep="\n")
+
+
+test_db()
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

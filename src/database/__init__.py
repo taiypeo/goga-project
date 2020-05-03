@@ -5,7 +5,9 @@ from sqlalchemy.orm import sessionmaker
 engine = create_engine("sqlite:///../db.sqlite")
 Base = declarative_base()
 
+from .event import *
 from .user import *
+from .course import *
 
 Base.metadata.create_all(engine)
 
