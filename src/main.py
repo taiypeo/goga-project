@@ -3,16 +3,6 @@ import os
 import sys
 import telegram
 
-def test_db():
-    from database import session, User, ROLE_STUDENT
-
-    u = User(telegram_id="1337", role=ROLE_STUDENT)
-    print(u)
-    session.add(u)
-    session.commit()
-
-test_db()
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
