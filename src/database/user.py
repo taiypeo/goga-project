@@ -20,8 +20,12 @@ class User(Base):
     courses = relationship("Course", secondary=course_to_user, back_populates="users")
 
     def __repr__(self):
-        return f"<User tg_id={self.telegram_id}\
-            can_post={self.can_post}\
-            can_invite_admins={self.can_invite_admins}\
-            can_invite_posters={self.can_invite_posters}\
-            can_invite_students={self.can_invite_students}>"
+        capabilities = list()
+        if self.can_post: capabilities.append("post")
+        if self.can_invite_admins: capabilities.append("invite admins")
+        if self.can_invite_posters: capabilities.append("invite posters")
+        if self.can_invite_students: capabilities.append("invite students")
+        if len(capabilities) > 0:
+            capabilities = [""] + capabilities
+
+        return f"<User tg_id={self.telegram_id}{' '.join(capabilities)}>"
