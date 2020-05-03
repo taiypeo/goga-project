@@ -1,27 +1,21 @@
-import enum
-from sqlalchemy import Column, Integer, SmallInteger, text
+from sqlalchemy import Column, Integer, Boolean, text
 
 from . import Base
-
-
-ROLE_ADMIN = 0
-ROLE_INFO_SOURCE = 1
-ROLE_STUDENT = 2
-
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, nullable=False, primary_key=True)
-    telegram_id = Column(Integer, nullable=False, unique=True, index=True)
-    role = Column(SmallInteger, nullable=False, default=ROLE_STUDENT)
+    telegram_id = Column(Integer, nullable=False)
+
+    can_post = Column(Boolean, nullable=False, default=False)
+    can_invite_admins = Column(Boolean, nullable=False, default=False)
+    can_invite_posters = Column(Boolean, nullable=False, default=False)
+    can_invite_students = Column(Boolean, nullable=False, default=False)
 
     def __repr__(self):
-        role_strs = ["ADMIN", "INFO_SOURCE", "STUDENT"]
-        role_str = "UNKNOWN"
-        if self.role is None:
-            role_str = "UNCOMMITED"
-        elif 0 <= self.role <= 2:
-            role_str = role_strs[self.role]
-
-        return f"<User tg_id={self.telegram_id} role={role_str}>"
+        return f"<User tg_id={self.telegram_id}\
+            can_post={self.can_post}>\
+            can_invite_admins={self.can_invite_admins}\
+            can_invite_posters={self.can_invite_posters}\
+            can_invite_students={self.can_invite_students}"

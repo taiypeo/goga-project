@@ -6,6 +6,7 @@ engine = create_engine("sqlite:///../db.sqlite")
 Base = declarative_base()
 
 from .user import *
+from .course import *
 
 Base.metadata.create_all(engine)
 
