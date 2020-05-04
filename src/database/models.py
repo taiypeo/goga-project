@@ -1,14 +1,17 @@
-from . import Base, session
+from . import Base, serializer
 from .permissions import SaIntFlagType, Perm
-from ..config import secret_key
 
 from sqlalchemy import Column, Integer, Text, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.exc import DatabaseError
-from itsdangerous.serializer import Serializer, BadSignature
+from itsdangerous.serializer import BadSignature
+from sqlalchemy.orm.session import Session as SessionGetter
 
 
-def _add_to_database(obj: object) -> bool:
+class PermissionError(RuntimeError):
+    pass
+
+def _add_to_database(obj: object, session) -> bool:
     try:
         session.add(obj)
         session.commit()
@@ -49,51 +52,32 @@ class User(Base):
     groups = relationship("Permission", back_populates="user")
 
     def create_invitation(
-        self, invitee_tg_id: int, invitee_permissions: BindedPermissions, group: Group
+        self, invitee_tg_id: int, invitee_permissions: Perm, group: Group
     ) -> str:
+        session = SessionGetter.object_session(self)
         permissions = (
             session.query(Permission)
             .get({"user_id": self.id, "group_id": group.id})
-            .first()
+            .one()
         )
-        if permissions is None:
-            raise ValueError("Invalid user-group pair for permissions")
 
-        if invitee_permissions.is_enabled("post") and not permissions.is_enabled(
-            "invite_posters"
-        ):
-            raise RuntimeError("This user is not allowed to invite posters")
-        if not invitee_permissions.is_enabled("post") and not permissions.is_enabled(
-            "invite_students"
-        ):
-            raise RuntimeError("This user is not allowed to invite students")
+        if invitee_permissions & Perm.post and not permissions & Perm.invite_posters:
+            raise PermissionError("This user is not allowed to invite posters")
+        if not invitee_permissions & Perm.post and not permissions & Perm.invite_students:
+            raise PermissionError("This user is not allowed to invite students")
 
-        serializer = Serializer(secret_key)
         return serializer.dumps(
             {
-                "tg_id": invitee_tg_id,
                 "group_id": group.id,
                 "permissions": invitee_permissions,
             }
         )
 
-    @staticmethod
-    def invite(self, invitation: str) -> User:
-        serializer = Serializer(secret_key)
+    def accept_invite(self, invitation: str):
         try:
             user_info = serializer.loads(invitation)
         except BadSignature:
             raise RuntimeError("Invalid signature for the invitation")
-
-        if "tg_id" not in user_info or type(user_info["tg_id"]) != int:
-            raise RuntimeError(
-                "Invalid invitation payload: 'tg_id' is not an 'int'\
-                    or does not exist"
-            )
-
-        user = User(tg_id=user_info["tg_id"])
-        if not _add_to_database(user):
-            raise RuntimeError("Failed to add the user to the database")
 
         if "group_id" not in user_info or type(user_info["group_id"]) != int:
             raise RuntimeError(
@@ -101,13 +85,12 @@ class User(Base):
                     or does not exist"
             )
 
-        group = session.Query(Group).get(user_info["group_id"]).first()
-        if group is None:
-            raise RuntimeError("Group with this ID does not exist")
+        session = SessionGetter.object_session(self)
+        group = session.Query(Group).get(user_info["group_id"]).one()
 
         if (
             "permissions" not in user_info
-            or type(user_info["permissions"]) != BindedPermissions
+            or not isinstance(user_info["permissions"], Perm)
         ):
             raise RuntimeError(
                 "Invalid invitation payload: 'permissions' is not\
@@ -115,10 +98,11 @@ class User(Base):
                     not exist"
             )
 
-        permission = Permission(group=group, user=user)
-        # TODO: set permission bits
+        permission = Permission(
+            group=group,
+            user=self,
+            perm=user_info["permissions"]
+        )
 
-        if not _add_to_database(permission):
+        if not _add_to_database(permission, session):
             raise RuntimeError("Failed to add the permission to the database")
-
-        return user
