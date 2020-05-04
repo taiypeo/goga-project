@@ -15,14 +15,19 @@ logger.setLevel(level=os.environ.get("LOGLEVEL", "ERROR").upper())
 
 
 def test_db():
-    from src.database import session, User, Event
+    from database import session, User, Event
+    from datetime import datetime, timedelta
+    import random
 
     u = User(telegram_id=str(int(time.time())))
     print(u)
 
     session.add(u)
-    for i in range(7):
-        e = Event(expired=(i % 2 == 0))
+    for _ in range(7):
+        e = Event(
+            date=datetime.now() +
+            timedelta(milliseconds=random.randint(1, 1000))
+        )
         session.add(e)
         u.events.append(e)
     session.commit()
@@ -31,6 +36,7 @@ def test_db():
 
 
 test_db()
+time.sleep(2) #  wait for scheduler to do jobs
 
 
 if "TG_BOT_TOKEN" not in os.environ:
