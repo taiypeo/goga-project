@@ -8,7 +8,8 @@ from ..database import (
     Perm,
     add_to_database,
     AlreadyJoinedError,
-    NonexistantGroup
+    NonexistantGroup,
+    BadInvitation
 )
 from telegram.ext import CommandHandler
 from itsdangerous.exc import BadSignature
@@ -35,12 +36,10 @@ def join(update, context):
 
         try:
             group = user.accept_invite(invitation)
-        except (BadSignature, NonexistantGroup):
+        except (BadInvitation, NonexistantGroup):
             return reply("Невалидный инвайт.")
         except AlreadyJoinedError:
             return reply("Вы уже состоите в этой группе.")
-        except RuntimeError as err:
-            return reply("Произошла неизвестная ошибка. Обратитесь к администратору.")
 
         return reply(f"Вы успешно присоединились к группе '{group.title}'!")
 

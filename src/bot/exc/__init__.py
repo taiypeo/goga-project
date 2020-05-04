@@ -17,6 +17,17 @@ class EffectiveUserNotFound(BotErrorHandler):
             text=("Чтобы начать пользоваться ботом, отправьте '/start'."),
         )
 
+class UnknownError(BotErrorHandler):
+    def __init__(self, retval=None):
+        self.retval=None
+    
+    def teardown(self, update, context):
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=("Чтобы начать пользоваться ботом, отправьте '/start'."),
+        )
+        return self.retval
+
 
 def handle_errors(update, context):
     try:
