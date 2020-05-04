@@ -52,15 +52,17 @@ class User(Base):
 
     def create_invitation(self, invitee_permissions: Perm, group: Group) -> str:
         session = SessionGetter.object_session(self)
-        permissions = (
-            session.query(Permission)
-            .get({"user_id": self.id, "group_id": group.id})
+        permissions = session.query(Permission).get(
+            {"user_id": self.id, "group_id": group.id}
         )
 
         if permissions is None:
             raise ValueError("User-group permission does not exist")
 
-        if invitee_permissions & Perm.post and not permissions.perm & Perm.invite_posters:
+        if (
+            invitee_permissions & Perm.post
+            and not permissions.perm & Perm.invite_posters
+        ):
             raise PermissionError("This user is not allowed to invite posters")
         if (
             not invitee_permissions & Perm.post

@@ -11,5 +11,5 @@ from .invite import *
 
 from .exc import *
 
-log.info('start polling...')
+log.info("start polling...")
 updater.start_polling()

@@ -121,8 +121,7 @@ def invite_permissions(update, context):
         return ConversationHandler.END
     except ValueError:
         context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Вы не состоите в этой группе.",
+            chat_id=update.effective_chat.id, text="Вы не состоите в этой группе.",
         )
         Session.remove()
         return ConversationHandler.END
