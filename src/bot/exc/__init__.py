@@ -12,7 +12,7 @@ class BotErrorHandler(RuntimeError):
 class EffectiveUserNotFound(BotErrorHandler):
     def teardown(self, update, context):
         context.bot.send_message(chat_id=update.effective_chat.id, text=(
-            "Чтобы начать пользоваться ботом, отправьте /start"
+            "Чтобы начать пользоваться ботом, отправьте '/start'."
         ))
 
 
