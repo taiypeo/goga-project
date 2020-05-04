@@ -14,4 +14,5 @@ Session = scoped_session(sessionmaker(bind=engine))
 from .models import *
 
 Base.metadata.create_all(engine)
-session = Session()
+
+from .utils import *

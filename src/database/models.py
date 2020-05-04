@@ -1,4 +1,5 @@
 from . import Base, serializer
+from .utils import add_to_database
 from .permissions import SaIntFlagType, Perm
 
 from sqlalchemy import Column, Integer, Text, ForeignKey, Table
@@ -9,17 +10,6 @@ from sqlalchemy.orm.session import Session as SessionGetter
 
 class PermissionError(RuntimeError):
     pass
-
-
-def _add_to_database(obj: object, session) -> bool:
-    try:
-        session.add(obj)
-        session.commit()
-    except DatabaseError:
-        session.rollback()
-        return False
-
-    return True
 
 
 class Permission(Base):
@@ -107,5 +97,5 @@ class User(Base):
 
         permission = Permission(group=group, user=self, perm=user_info["permissions"])
 
-        if not _add_to_database(permission, session):
+        if not add_to_database(permission, session):
             raise RuntimeError("Failed to add the permission to the database")
