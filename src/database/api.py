@@ -28,9 +28,9 @@ def permission_courses(
         "can_invite_students",
     ]
     kwargs = {"telegram_id": tg_id}
-    for i in permissions:
-        if permissions[i] is not None:
-            kwargs[perm_names[i]] = permissions[i]
+    for i, perm in enumerate(permissions):
+        if perm is not None:
+            kwargs[perm_names[i]] = perm
 
     users = session.query(User).filter_by(**kwargs).all()
     return [u.course for u in users]
