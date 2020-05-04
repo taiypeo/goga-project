@@ -112,7 +112,7 @@ def can_give_tokens(user_id: int) -> Tuple[bool, bool, bool]:
 
 
 def ask_token_type(update, context):
-    user_id = update.effective.chat.id
+    user_id = update.effective_chat.id
     match = (admin, teacher, student)
     can_give = can_give_tokens(user_id)
     if sum(can_give) == 1:
@@ -125,7 +125,7 @@ def ask_token_type(update, context):
 
 
 def handle_token_type(update, context):
-    user_id: int = update.effective.chat.id
+    user_id: int = update.effective_chat.id
     token_type: str = update.message.text
     match: Dict[str, Tuple[int, int, int, int, int]] = \
         {"админ": admin, "преподаватель": teacher, "ученик": student}
@@ -147,7 +147,7 @@ def all_admined_courses(user_id: int) -> List[str]:
 
 
 def handle_tk_group(update, context):
-    user_id = update.effective.chat.id
+    user_id = update.effective_chat.id
     group = update.message.text
 
     if group in all_admined_courses(user_id):
@@ -166,13 +166,12 @@ token_progress = [ask_token_type, handle_token_type, handle_tk_group]
 
 
 def handle_token_dialog(update, context):
-    user_id = update.effective.chat.id
+    user_id = update.effective_chat.id
     token_progress[new_token_records[user_id]["step"]](update, context)
 
 
 def handle_token_command(update, context):
-    user_id = update.effective.chat.id
-
+    user_id = update.effective_chat.id
     if not any(can_give_tokens(user_id)):
         context.bot.send_message(chat_id=user_id, text="Извините, у вас не прав выдавать токены.")
         return
@@ -188,7 +187,7 @@ dispatcher.add_handler(token_dialog_handler)
 
 
 def ask_group(update, context):
-    user_id = update.effective.chat.id
+    user_id = update.effective_chat.id
     if 'dude can send messages to only one group':
         mew_msg_records[user_id]["group"] = "group"
         mew_msg_records[user_id]["step"] += 2
@@ -201,7 +200,7 @@ def ask_group(update, context):
 
 
 def handle_send_group(update, context):
-    user_id = update.effective.chat.id
+    user_id = update.effective_chat.id
     group = update.message.text
     if 'dude can send to this group':
         mew_msg_records[user_id]["step"] += 1
@@ -212,7 +211,7 @@ def handle_send_group(update, context):
 
 
 def handle_send(update, context):
-    user_id = update.effective.chat.id
+    user_id = update.effective_chat.id
     if 'dude has no rights to send messages':
         context.bot.send_message(chat_id=user_id, text="Извините, у вас нет права отправлять сообщения.")
         return
@@ -222,6 +221,7 @@ def handle_send(update, context):
         mew_msg_records[user_id]["step"] += 2
         context.bot.send_message(chat_id=user_id, text="Если хотите обозначить дедлайн, напишите его в формате\
          ГГ.ММ.ДД ЧЧ:ММ. Если нет, просто поставьте '-'.")
+
 
 
 updater.start_polling()
