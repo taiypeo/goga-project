@@ -28,25 +28,28 @@ dispatcher.add_handler(start_handler)
 
 
 # REGISTER USER
-def register(update, context):
-    token = context.args
-    context.bot.send_message(chat_id=update.effective_chat.id, text="registering you with token:{}...")
-    db_register_user(token, update.effective_chat.id)
+def join(update, context):
+    try: token = context.args[0]
+    except:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Fuck you! Your token is bullshit!")
+        return
+    context.bot.send_message(chat_id=update.effective_chat.id, text="registering you with token:{}...".format(token))
+    reg_result = "ok"#db_register_user(token, update.effective_chat.id)
 
-register_handler = CommandHandler("register", register)
+register_handler = CommandHandler("join", join)
 dispatcher.add_handler(register_handler)
 
 def create_token(update, context):
     permissions = context.args
-    token = db_get_token(permissions)
+    token = "aaa" #db_get_token(permissions)
     context.bot.send_message(chat_id=update.effective_chat.id, text=token)
 
-create_token_handler = CommandHandler("token", create_token())
+create_token_handler = CommandHandler("token", create_token)
 dispatcher.add_handler(create_token_handler)
 
 # MY_DEADLINES
 def get_deadlines(update, context):
-    deadlines = db_get_deadlines(update.effective_chat.id, context.args)
+    deadlines = "aaa"#db_get_deadlines(update.effective_chat.id, context.args)
     context.bot.send_message(chat_id=update.effective_chat.id, text=deadlines)
 
 

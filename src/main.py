@@ -8,10 +8,29 @@ from telegram.ext import Dispatcher, Updater, CommandHandler, MessageHandler, Fi
 import time
 from collections import defaultdict
 import secrets
-from src.database.api import permission_courses, add_token, check_token_presence, get_token_permissions, add_permission
+from database.api import permission_courses, add_token, check_token_presence, get_token_permissions, add_permission
+
+
+def test_db():
+    from database import session, User, Event
+
+    u = User(telegram_id=str(int(time.time())))
+    print(u)
+
+    session.add(u)
+    for i in range(7):
+        e = Event(expired=(i % 2 == 0))
+        session.add(e)
+        u.events.append(e)
+    session.commit()
+
+    print(*Event.upcoming_events(session, 2), sep="\n")
+
+
+#test_db()
 
 logger = logging.getLogger()
-logger.setLevel(level=os.environ.get("LOGLEVEL", "ERROR").upper())
+logger.setLevel(logging.INFO)
 
 if "TG_BOT_TOKEN" not in os.environ:
     logger.critical("No TG_BOT_TOKEN environment variable found")
@@ -42,7 +61,7 @@ dispatcher = updater.dispatcher
 def prejoin(update, context):
     user_id = update.effective_chat.id
     joining_users.add(user_id)
-    context.bot.send_message(chat_id=user_id, text="Хорошо, жду ваш токен.")
+    context.bot.send_message(chat_id=user_id, text="Хорошо, жду ваш токен.{}".format(joining_users))
 
 
 prejoin_handler = CommandHandler('join', prejoin)
@@ -51,25 +70,34 @@ dispatcher.add_handler(prejoin_handler)
 
 def join(update, context):
     user_id = update.effective_chat.id
+    context.bot.send_message(chat_id=user_id, text=user_id)
     if user_id in joining_users:
         token: str = update.message.text
         joining_users.remove(user_id)
         if check_token_presence(token):
+            context.bot.send_message(chat_id=user_id, text="TOKEN_OK")
             course, permissions = get_token_permissions(token)
+            context.bot.send_message(chat_id=user_id, text="{}, {}".format(course, permissions))
             add_permission(user_id, course, permissions)
+            context.bot.send_message(chat_id=user_id, text="1")
             report = f"Теперь в пределах группы {course} вы можете"
             ru_names = ("отправлять сообщения",
                         "создавать подгруппы",
                         "приглашать админов",
                         "приглашать учителей",
                         "приглашать студентов")
+            context.bot.send_message(chat_id=user_id, text="2")
 
             report = report + ", ".join([ru_names[i] for i in range(1, len(permissions)) if permissions[i] > 0])
-            context.bot.send_message(chat_id=user_id, text=report+".")
+            context.bot.send_message(chat_id=user_id, text="3")
+
+            context.bot.send_message(chat_id=user_id, text=report)
+        else:
+            context.bot.send_message(chat_id=user_id, text="У вас неверный токен")
 
 
 join_handler = MessageHandler(Filters.text & (~Filters.command), join)
-
+dispatcher.add_handler(join_handler)
 
 def can_give_tokens(user_id: int) -> Tuple[bool, bool, bool]:
     res_tup: Tuple[bool, bool, bool] = (
@@ -195,4 +223,4 @@ def handle_send(update, context):
 
 updater.start_polling()
 
-'updater.idle()'
+updater.idle()
