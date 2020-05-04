@@ -36,10 +36,39 @@ def permission_courses(
     return [u.course for u in users]
 
 
+def check_permissions(
+    tg_id: int, course_name: str, permissions: Tuple[int, int, int, int, int],
+) -> bool:
+    course = session.Query(Course).filter_by(title=course_name).first()
+    if course is None:
+        return False
+
+    user = next((u for u in course.users if u.telegram_id == tg_id), None)
+    if user is None:
+        return False
+
+    valid = True
+    user_perms = [
+        user.can_post,
+        user.can_create_subgroups,
+        user.can_invite_admins,
+        user.can_invite_posters,
+        user.can_invite_students,
+    ]
+    for i in range(len(permissions)):
+        if permissions[i] is not None:
+            valid = valid and user_perms[i] == permissions[i]
+
+    return valid
+
+
 def add_permission(
     tg_id: int, course_name: str, permissions: Tuple[int, int, int, int, int]
 ) -> bool:
     course: Course = session.query(Course).filter_by(title=course_name).first()
+    if course is None:
+        return False
+
     user = next((u for u in course.users if u.telegram_id == tg_id), None)
     if user is None:
         user = User(telegram_id=tg_id)
@@ -73,7 +102,7 @@ def add_token(
         can_invite_admins=permissions[2],
         can_invite_posters=permissions[3],
         can_invite_students=permissions[4],
-        course=course
+        course=course,
     )
 
     return add_to_database(token)
@@ -85,8 +114,13 @@ def check_token_presence(token: str) -> bool:
 
 def get_token_permissions(token: str) -> Tuple[str, Tuple[int, int, int, int, int]]:
     token_record: Token = session.query(Token).filter_by(token=token).first()
-    return (token_record.course.title, (token_record.can_post,
-                                 token_record.can_create_subgroups,
-                                 token_record.can_invite_admins,
-                                 token_record.can_invite_posters,
-                                 token_record.can_invite_students))
+    return (
+        token_record.course.title,
+        (
+            token_record.can_post,
+            token_record.can_create_subgroups,
+            token_record.can_invite_admins,
+            token_record.can_invite_posters,
+            token_record.can_invite_students,
+        ),
+    )
