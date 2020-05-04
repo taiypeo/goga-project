@@ -7,13 +7,7 @@ engine = create_engine("sqlite:///../db.sqlite")
 Base = declarative_base()
 Session = scoped_session(sessionmaker(bind=engine))
 
-from .token import *
-from .event import *
-from .user import *
-from .course import *
+from .models import *
 
 Base.metadata.create_all(engine)
-
 session = Session()
-
-from .api import *

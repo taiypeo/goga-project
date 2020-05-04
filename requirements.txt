@@ -8,6 +8,7 @@ click==7.1.2
 cryptography==2.9.2
 decorator==4.4.2
 future==0.18.2
+itsdangerous==1.1.0
 pathspec==0.8.0
 pycparser==2.20
 python-telegram-bot==12.7
