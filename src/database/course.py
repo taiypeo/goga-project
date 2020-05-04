@@ -11,6 +11,7 @@ class Course(Base):
     title = Column(Text, nullable=False)
 
     users = relationship("User", back_populates="course")
+    tokens = relationship("Token", back_populates="course")
 
     parent_id = Column(Integer, ForeignKey("courses.id"))
     subcourses = relationship("Course", backref=backref("parent", remote_side=[id]))

@@ -2,7 +2,7 @@ from typing import Tuple, List
 import itertools
 
 from sqlalchemy.exc import DatabaseError
-from . import session, User, Course
+from . import session, User, Course, Token
 
 
 def add_to_database(obj) -> bool:
@@ -28,7 +28,7 @@ def permission_courses(
         "can_invite_students",
     ]
     kwargs = {"telegram_id": tg_id}
-    for i in range(permissions):
+    for i in permissions:
         if permissions[i] is not None:
             kwargs[perm_names[i]] = permissions[i]
 
@@ -36,9 +36,10 @@ def permission_courses(
     return [u.course for u in users]
 
 
-def add_user(
-    tg_id: int, permissions: Tuple[int, int, int, int, int], course: Course
+def add_permission(
+    tg_id: int, course_name: str, permissions: Tuple[int, int, int, int, int]
 ) -> bool:
+    course: Course = session.query(Course).filter_by(title=course_name).first()
     user = next((u for u in course.users if u.telegram_id == tg_id), None)
     if user is None:
         user = User(telegram_id=tg_id)
@@ -50,3 +51,42 @@ def add_user(
     user.can_invite_students = permissions[4]
 
     return add_to_database(user)
+
+
+def add_token(
+    token: str, course_name: str, permissions: Tuple[int, int, int, int, int]
+) -> bool:
+    course_exists = session.query(Course).filter_by(title=course_name).count() > 0
+    if not course_exists:
+        add_to_database(Course(title=course_name))
+
+    course = session.query(Course).filter_by(title=course_name).one()
+
+    found = session.query(Token).filter_by(token=token).first()
+    if found is not None:
+        return False
+
+    token = Token(
+        token=token,
+        can_post=permissions[0],
+        can_create_subgroups=permissions[1],
+        can_invite_admins=permissions[2],
+        can_invite_posters=permissions[3],
+        can_invite_students=permissions[4],
+        course=course
+    )
+
+    return add_to_database(token)
+
+
+def check_token_presence(token: str) -> bool:
+    return session.query(Token).filter_by(token=token).count() > 0
+
+
+def get_token_permissions(token: str) -> Tuple[str, Tuple[int, int, int, int, int]]:
+    token_record: Token = session.query(Token).filter_by(token=token).first()
+    return(token_record.course, (token_record.can_post,
+                                 token_record.can_create_subgroups,
+                                 token_record.can_invite_admins,
+                                 token_record.can_invite_posters,
+                                 token_record.can_invite_students))

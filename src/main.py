@@ -1,12 +1,18 @@
 import logging
 import os
 import sys
+from typing import Dict, Tuple, List
+
 import telegram
+from telegram.ext import Dispatcher, Updater, CommandHandler, MessageHandler, Filters
 import time
+from collections import defaultdict
+import secrets
+from src.database.api import permission_courses, add_token, check_token_presence, get_token_permissions, add_permission
 
 
 def test_db():
-    from database import session, User, Event
+    from src.database import session, User, Event
 
     u = User(telegram_id=str(int(time.time())))
     print(u)
@@ -30,5 +36,182 @@ if "TG_BOT_TOKEN" not in os.environ:
     logger.critical("No TG_BOT_TOKEN environment variable found")
     sys.exit(1)
 
-bot = telegram.Bot(token=os.environ["TG_BOT_TOKEN"])
-print(bot.get_me())
+'bot = telegram.Bot(token=os.environ["TG_BOT_TOKEN"])'
+'print(bot.get_me())'
+
+admin = (1, 1, 1, 1, 1)
+teacher = (1, 0, 0, 0, 0)
+student = (0, 0, 0, 0, 0)
+
+
+god_token = secrets.token_hex(18)
+add_token(god_token, "root", admin)
+print("Your universal token:")
+print(god_token)
+del god_token
+
+joining_users = set()
+new_token_records = defaultdict(lambda _: {"step": 0})
+mew_msg_records = defaultdict(lambda _: {"step": 0})
+
+updater = Updater(token=os.environ["TG_BOT_TOKEN"], use_context=True)
+dispatcher = updater.dispatcher
+
+
+def prejoin(update, context):
+    user_id = update.effective_chat.id
+    joining_users.add(user_id)
+    context.bot.send_message(chat_id=user_id, text="Хорошо, жду ваш токен.")
+
+
+prejoin_handler = CommandHandler('join', prejoin)
+dispatcher.add_handler(prejoin_handler)
+
+
+def join(update, context):
+    user_id = update.effective_chat.id
+    if user_id in joining_users:
+        token: str = update.message.text
+        joining_users.remove(user_id)
+        if check_token_presence(token):
+            course, permissions = get_token_permissions(token)
+            add_permission(user_id, course, permissions)
+            report = f"Теперь в пределах группы {course} вы можете"
+            ru_names = ("отправлять сообщения",
+                        "создавать подгруппы",
+                        "приглашать админов",
+                        "приглашать учителей",
+                        "приглашать студентов")
+
+            report = report + ", ".join([ru_names[i] for i in range(1, len(permissions)) if permissions[i] > 0])
+            context.bot.send_message(chat_id=user_id, text=report+".")
+
+
+join_handler = MessageHandler(Filters.text & (~Filters.command), join)
+
+
+def can_give_tokens(user_id: int) -> Tuple[bool, bool, bool]:
+    res_tup: Tuple[bool, bool, bool] = (
+        len(permission_courses(user_id, (None, None, 1, None, None))) > 0,
+        len(permission_courses(user_id, (None, None, None, 1, None))) > 0,
+        len(permission_courses(user_id, (None, None, None, None, 1))) > 0)
+
+    return res_tup
+
+
+def ask_token_type(update, context):
+    user_id = update.effective.chat.id
+    match = (admin, teacher, student)
+    can_give = can_give_tokens(user_id)
+    if sum(can_give) == 1:
+        new_token_records[user_id]["perm"] = match[can_give.index(True)]
+        new_token_records[user_id]["step"] += 2
+        context.bot.send_message(chat_id=user_id, text="Укажите группу.")
+    else:
+        context.bot.send_message(chat_id=user_id, text="Укажите тип токена [админ, преподаватель, ученик].")
+        new_token_records[user_id]["step"] += 1
+
+
+def handle_token_type(update, context):
+    user_id: int = update.effective.chat.id
+    token_type: str = update.message.text
+    match: Dict[str, Tuple[int, int, int, int, int]] = \
+        {"админ": admin, "преподаватель": teacher, "ученик": student}
+    if token_type in match.keys():
+        new_token_records[user_id]["perm"] = match[token_type]
+        new_token_records[user_id]["step"] += 1
+        context.bot.send_message(chat_id=user_id, text="Укажите группу.")
+    else:
+        context.bot.send_message(chat_id=user_id, text="Такого типа токена не существует. Попробуйте ещё раз.")
+
+
+def all_admined_courses(user_id: int) -> List[str]:
+    res_set = \
+        set(permission_courses(user_id, (None, None, 1, None, None))) | \
+        set(permission_courses(user_id, (None, None, None, 1, None))) | \
+        set(permission_courses(user_id, (None, None, None, None, 1)))
+
+    return list(res_set)
+
+
+def handle_tk_group(update, context):
+    user_id = update.effective.chat.id
+    group = update.message.text
+
+    if group in all_admined_courses(user_id):
+        token = secrets.token_hex(18)
+        add_token(token, group, new_token_records[user_id]["perm"])
+        del new_token_records[user_id]
+        context.bot.send_message(chat_id=user_id,
+                                 text=f"Токен успешно создан. Не рекомендуется выкладывать его в открытый доступ.")
+        context.bot.send_message(chat_id=user_id, text=token)
+    else:
+        context.bot.send_message(chat_id=user_id,
+                                 text="У вас нет разрешения выдавать такие токены для этой группы. Попробуйте ещё раз")
+
+
+token_progress = [ask_token_type, handle_token_type, handle_tk_group]
+
+
+def handle_token_dialog(update, context):
+    user_id = update.effective.chat.id
+    token_progress[new_token_records[user_id]["step"]](update, context)
+
+
+def handle_token_command(update, context):
+    user_id = update.effective.chat.id
+
+    if not any(can_give_tokens(user_id)):
+        context.bot.send_message(chat_id=user_id, text="Извините, у вас не прав выдавать токены.")
+        return
+
+    handle_token_dialog(update, context)
+
+
+token_handler = CommandHandler('token', handle_token_command)
+dispatcher.add_handler(token_handler)
+
+token_dialog_handler = MessageHandler(Filters.text & (~Filters.command), handle_token_dialog)
+dispatcher.add_handler(token_dialog_handler)
+
+
+def ask_group(update, context):
+    user_id = update.effective.chat.id
+    if 'dude can send messages to only one group':
+        mew_msg_records[user_id]["group"] = "group"
+        mew_msg_records[user_id]["step"] += 2
+        context.bot.send_message(chat_id=user_id, text="Если хотите обозначить дедлайн, напишите его в формате\
+         ГГ.ММ.ДД ЧЧ:ММ. Если нет, просто поставьте '-'.")
+        return
+
+    mew_msg_records[user_id]["step"] += 1
+    context.bot.send_message(chat_id=user_id, text="Укажите группу, в которую хотите отправить сообщение.")
+
+
+def handle_send_group(update, context):
+    user_id = update.effective.chat.id
+    group = update.message.text
+    if 'dude can send to this group':
+        mew_msg_records[user_id]["step"] += 1
+        context.bot.send_message(chat_id=user_id, text="Если хотите обозначить дедлайн, напишите его в формате\
+                 ГГ.ММ.ДД ЧЧ:ММ. Если нет, просто поставьте '-'.")
+    else:
+        context.bot.send_message(chat_id=user_id, text="У вас нет права отсылать ")
+
+
+def handle_send(update, context):
+    user_id = update.effective.chat.id
+    if 'dude has no rights to send messages':
+        context.bot.send_message(chat_id=user_id, text="Извините, у вас нет права отправлять сообщения.")
+        return
+
+    if 'dude can send messages to only one group':
+        mew_msg_records[user_id]["group"] = "group"
+        mew_msg_records[user_id]["step"] += 2
+        context.bot.send_message(chat_id=user_id, text="Если хотите обозначить дедлайн, напишите его в формате\
+         ГГ.ММ.ДД ЧЧ:ММ. Если нет, просто поставьте '-'.")
+
+
+updater.start_polling()
+
+'updater.idle()'
