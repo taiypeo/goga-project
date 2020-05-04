@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from typing import Dict, Tuple, List
+from logging import info
 
 import telegram
 from telegram.ext import Dispatcher, Updater, CommandHandler, MessageHandler, Filters
@@ -9,20 +10,23 @@ import time
 from collections import defaultdict
 import secrets
 from database import (
-    permission_courses,
+    get_users,
     add_token,
     check_token_presence,
-    get_token_permissions,
     add_permission,
     check_permissions,
+    session,
+    User,
+    UnbindedPermissions
 )
 
 from config import bot_token
 
-admin = (1, 1, 1, 1, 1)
-teacher = (1, 0, 0, 0, 0)
-student = (0, 0, 0, 0, 0)
-
+admin = UnbindedPermissions(
+    "post", "create_subgroups", "invite_admins", "invite_posters", "invite_students"
+)
+teacher = UnbindedPermissions("post")
+student = UnbindedPermissions()
 
 god_token = secrets.token_hex(18)
 add_token(god_token, "root", admin)
@@ -54,17 +58,17 @@ def join(update, context):
     user_id = update.effective_chat.id
     context.bot.send_message(chat_id=user_id, text=user_id)
     if user_id in joining_users:
-        token: str = update.message.text
+        token_str: str = update.message.text
         joining_users.remove(user_id)
-        if check_token_presence(token):
-            context.bot.send_message(chat_id=user_id, text="TOKEN_OK")
-            course, permissions = get_token_permissions(token)
+        token = session.query(Token).filter_by(token=token_str)
+        if token is not None:
+            info(f'chat_id={user_id}, "TOKEN_OK"')
             context.bot.send_message(
-                chat_id=user_id, text="{}, {}".format(course, permissions)
+                chat_id=user_id, text="{}, {}".format(token.course.title, token.permissions)
             )
             add_permission(user_id, course, permissions)
             context.bot.send_message(chat_id=user_id, text="1")
-            report = f"Теперь в пределах группы {course} вы можете"
+            report = f"Теперь в пределах группы {token.course.title} вы можете"
             ru_names = (
                 "отправлять сообщения",
                 "создавать подгруппы",
@@ -89,13 +93,12 @@ dispatcher.add_handler(join_handler)
 
 
 def can_give_tokens(user_id: int) -> Tuple[bool, bool, bool]:
-    res_tup: Tuple[bool, bool, bool] = (
-        len(permission_courses(user_id, (None, None, 1, None, None))) > 0,
-        len(permission_courses(user_id, (None, None, None, 1, None))) > 0,
-        len(permission_courses(user_id, (None, None, None, None, 1))) > 0,
+    users = get_users(user_id)
+    return (
+        any(user.permissions.enabled('invite_admins') for user in users),
+        any(user.permissions.enabled('invite_posters') for user in users),
+        any(user.permissions.enabled('invite_students') for user in users),
     )
-
-    return res_tup
 
 
 def ask_token_type(update, context):
@@ -133,13 +136,13 @@ def handle_token_type(update, context):
 
 
 def all_admined_courses(user_id: int) -> List[str]:
-    res_set = (
-        set(permission_courses(user_id, (None, None, 1, None, None)))
-        | set(permission_courses(user_id, (None, None, None, 1, None)))
-        | set(permission_courses(user_id, (None, None, None, None, 1)))
+    users = get_users(user_id)
+    return list(
+        user for user in users
+        if user.permissions.enabled('invite_admins') or
+           user.permissions.enabled('invite_posters') or
+           user.permissions.enabled('invite_students')
     )
-
-    return list(res_set)
 
 
 def handle_tk_group(update, context):
@@ -194,7 +197,9 @@ dispatcher.add_handler(token_dialog_handler)
 
 def ask_group(update, context):
     user_id = update.effective_chat.id
-    send_courses = permission_courses(user_id, (True, None, None, None, None))
+    send_courses = [
+        user for user in get_users(user_id) if user.permissions.enabled('post')
+    ]
 
     if len(send_courses) == 1:
         mew_msg_records[user_id]["group"] = send_courses[
@@ -230,7 +235,9 @@ def handle_send_group(update, context):
 
 def handle_send(update, context):
     user_id = update.effective_chat.id
-    send_courses = permission_courses(user_id, (True, None, None, None, None))
+    send_courses = [
+        user for user in get_users(user_id) if user.permissions.enabled('post')
+    ]
 
     if len(send_courses) == 0:
         context.bot.send_message(

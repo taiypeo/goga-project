@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 
 from . import Base
 from . import user_to_event
-
+from .permissions import BindedPermissions
 
 class User(Base):
     __tablename__ = "users"
@@ -11,11 +11,11 @@ class User(Base):
     id = Column(Integer, nullable=False, primary_key=True)
     telegram_id = Column(Integer, nullable=False)
 
-    can_post = Column(Boolean, nullable=False, default=False)
-    can_create_subgroups = Column(Boolean, nullable=False, default=False)
-    can_invite_admins = Column(Boolean, nullable=False, default=False)
-    can_invite_posters = Column(Boolean, nullable=False, default=False)
-    can_invite_students = Column(Boolean, nullable=False, default=False)
+    permissions_bits = Column(Integer, default=0)
+
+    @property
+    def permissions(self):
+        return BindedPermissions(self, 'permissions_bits')
 
     events = relationship("Event", secondary=user_to_event, back_populates="users")
 

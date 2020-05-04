@@ -16,25 +16,8 @@ def add_to_database(obj) -> bool:
     return True
 
 
-def permission_courses(
-    tg_id: int, permissions: Tuple[int, int, int, int, int]
-) -> List[Course]:
-    query = session.query(User)
-    perm_names = [
-        "can_post",
-        "can_create_subgroups",
-        "can_invite_admins",
-        "can_invite_posters",
-        "can_invite_students",
-    ]
-    kwargs = {"telegram_id": tg_id}
-    for i, perm in enumerate(permissions):
-        if perm is not None:
-            kwargs[perm_names[i]] = perm
-
-    users = session.query(User).filter_by(**kwargs).all()
-    return [u.course for u in users]
-
+def get_users(tg_id: int):
+    return session.query(User).filter_by(telegram_id=id).all()
 
 def check_permissions(
     tg_id: int, course_name: str, permissions: Tuple[int, int, int, int, int],
@@ -83,7 +66,7 @@ def add_permission(
 
 
 def add_token(
-    token: str, course_name: str, permissions: Tuple[int, int, int, int, int]
+    token: str, course_name: str, permissions
 ) -> bool:
     course_exists = session.query(Course).filter_by(title=course_name).count() > 0
     if not course_exists:
@@ -95,32 +78,11 @@ def add_token(
     if found is not None:
         return False
 
-    token = Token(
-        token=token,
-        can_post=permissions[0],
-        can_create_subgroups=permissions[1],
-        can_invite_admins=permissions[2],
-        can_invite_posters=permissions[3],
-        can_invite_students=permissions[4],
-        course=course,
-    )
+    token = Token(token=token, course=course)
+    token.permissions.enable_from(permissions)
 
     return add_to_database(token)
 
 
 def check_token_presence(token: str) -> bool:
     return session.query(Token).filter_by(token=token).count() > 0
-
-
-def get_token_permissions(token: str) -> Tuple[str, Tuple[int, int, int, int, int]]:
-    token_record: Token = session.query(Token).filter_by(token=token).first()
-    return (
-        token_record.course.title,
-        (
-            token_record.can_post,
-            token_record.can_create_subgroups,
-            token_record.can_invite_admins,
-            token_record.can_invite_posters,
-            token_record.can_invite_students,
-        ),
-    )
