@@ -8,7 +8,7 @@ from telegram.ext import Dispatcher, Updater, CommandHandler, MessageHandler, Fi
 import time
 from collections import defaultdict
 import secrets
-from src.database.api import permission_courses, add_token, check_token_presence, get_token_permissions, add_permission
+from database.api import permission_courses, add_token, check_token_presence, get_token_permissions, add_permission
 
 logger = logging.getLogger()
 logger.setLevel(level=os.environ.get("LOGLEVEL", "ERROR").upper())
