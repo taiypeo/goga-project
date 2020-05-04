@@ -8,6 +8,7 @@ from ..database import (
     PermissionError,
     add_to_database,
 )
+from .exc import EffectiveUserNotFound
 from telegram.ext import CommandHandler, ConversationHandler, MessageHandler, Filters
 from sqlalchemy.orm.session import Session as SessionGetter
 
@@ -18,15 +19,8 @@ def invite_entry(update, context):
     tg_id = update.effective_user.id
     user = session.query(User).filter_by(tg_id=tg_id).first()
     if user is None:
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=(
-                "Пользователь не найден в системе. "
-                "Попробуйте воспользоваться командой '/start'."
-            ),
-        )
         Session.remove()
-        return ConversationHandler.END
+        raise EffectiveUserNotFound()
 
     if context.args is None or context.args == []:
         context.bot.send_message(
