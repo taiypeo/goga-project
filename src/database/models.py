@@ -33,6 +33,9 @@ class Permission(Base):
 
     perm = Column(SaIntFlagType(Perm), default=0)
 
+    def __repr__(self) -> str:
+        return f"<Permission {self.user} {self.group}>"
+
 
 class Group(Base):
     __tablename__ = "groups"
@@ -42,6 +45,9 @@ class Group(Base):
 
     users = relationship("Permission", back_populates="group")
 
+    def __repr__(self) -> str:
+        return f"<Group {self.title} users: {len(self.users)}>"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -50,6 +56,9 @@ class User(Base):
     tg_id = Column(Integer, nullable=False, unique=True)
 
     groups = relationship("Permission", back_populates="user")
+
+    def __repr__(self):
+        return f"<User tg: {self.tg_id}>"
 
     def create_invitation(self, invitee_permissions: Perm, group: Group) -> str:
         session = SessionGetter.object_session(self)
