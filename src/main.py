@@ -17,19 +17,7 @@ from database import (
     check_permissions,
 )
 
-logger = logging.getLogger()
-logger.setLevel(level=os.environ.get("LOGLEVEL", "ERROR").upper())
-
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if "TG_BOT_TOKEN" not in os.environ:
-    logger.critical("No TG_BOT_TOKEN environment variable found")
-    sys.exit(1)
-
-'bot = telegram.Bot(token=os.environ["TG_BOT_TOKEN"])'
-"print(bot.get_me())"
+from config import bot_token
 
 admin = (1, 1, 1, 1, 1)
 teacher = (1, 0, 0, 0, 0)
@@ -46,7 +34,7 @@ joining_users = set()
 new_token_records = defaultdict(lambda: {"step": 0})
 mew_msg_records = defaultdict(lambda: {"step": 0})
 
-updater = Updater(token=os.environ["TG_BOT_TOKEN"], use_context=True)
+updater = Updater(token=bot_token, use_context=True)
 dispatcher = updater.dispatcher
 
 
