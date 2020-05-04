@@ -134,9 +134,9 @@ def handle_token_type(update, context):
 
 def all_admined_courses(user_id: int) -> List[str]:
     res_set = (
-        set(permission_courses(user_id, (None, None, 1, None, None)))
-        | set(permission_courses(user_id, (None, None, None, 1, None)))
-        | set(permission_courses(user_id, (None, None, None, None, 1)))
+        set(permission_courses(user_id, (None, None, True, None, None)))
+        | set(permission_courses(user_id, (None, None, None, True, None)))
+        | set(permission_courses(user_id, (None, None, None, None, True)))
     )
 
     return list(res_set)
@@ -145,7 +145,9 @@ def all_admined_courses(user_id: int) -> List[str]:
 def handle_tk_group(update, context):
     user_id = update.effective_chat.id
     group = context.args[0]
-
+    context.bot.send_message(chat_id=user_id, text="groups:{}".format(permission_courses(user_id, (None, None, None, None))))
+    context.bot.send_message(chat_id=user_id, text="requested group:{}".format(group))
+    context.bot.send_message(chat_id=user_id, text="groups:{}".format(all_admined_courses(user_id)))
     if group in all_admined_courses(user_id):
         token = secrets.token_hex(18)
         add_token(token, group, new_token_records[user_id]["perm"])
@@ -167,8 +169,7 @@ token_progress = [ask_token_type, handle_token_type, handle_tk_group]
 
 def handle_token_dialog(update, context):
     user_id = update.effective_chat.id
-    context.bot.send_message(chat_id=user_id, text=new_token_records[user_id])
-    context.bot.send_message(chat_id=user_id, text=context.args)
+    context.bot.send_message(chat_id=user_id, text=str(token_progress[new_token_records[user_id]["step"]]))
     token_progress[new_token_records[user_id]["step"]](update, context)
 
 
@@ -191,6 +192,15 @@ token_dialog_handler = MessageHandler(
 )
 dispatcher.add_handler(token_dialog_handler)
 
+
+
+
+def can_give_tokens(user_id: int) -> Tuple[bool, bool, bool]:
+    res_tup: Tuple[bool, bool, bool] = (
+        len(permission_courses(user_id, (None, None, 1, None, None))) > 0,
+        len(permission_courses(user_id, (None, None, None, 1, None))) > 0,
+        len(permission_courses(user_id, (None, None, None, None, 1))) > 0,
+    )
 
 def ask_group(update, context):
     user_id = update.effective_chat.id
@@ -249,6 +259,19 @@ def handle_send(update, context):
          ГГ.ММ.ДД ЧЧ:ММ. Если нет, просто поставьте '-'.",
         )
 
+send_progress=[ask_group, handle_send_group, handle_send]
+
+
+def handle_send_dialog(update, context):
+    user_id = update.effective_chat.id
+    context.bot.send_message(chat_id=user_id, text=str(send_progress[mew_msg_records[user_id]["step"]]))
+    send_progress[mew_msg_records[user_id]["step"]](update, context)
+
+def handle_send_comand(update, context):
+    user_id = update.effective_chat.id
+    handle_send_dialog(update, context)
+
+send_handler = CommandHandler("msg", handle_send_comand)
 
 updater.start_polling()
 
