@@ -1,14 +1,24 @@
 from . import Base, serializer
 from .utils import add_to_database
 from .permissions import SaIntFlagType, Perm
-
-from sqlalchemy import Column, Integer, Text, ForeignKey, Table
+from typing import Set, List
+from sqlalchemy import Column, Integer, Text, ForeignKey, Table, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import ARRAY
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm.session import Session as SessionGetter
 from base64 import b64decode, b64encode
 from binascii import Error as Base64DecodeError
 from itsdangerous import BadSignature
+from functools import reduce
+
+msg_group = Table("messages_groups_match", Base.metadata,
+                  Column("messages_id", Integer, ForeignKey("messages.id")),
+                  Column("groups_id", Integer, ForeignKey("groups.id")))
+
+msg_keyword = Table("messages_keywords_match", Base.metadata,
+                    Column("messages_id", Integer, ForeignKey("messages.id")),
+                    Column("keywords_id", Integer, ForeignKey("keywords.id")))
 
 
 class PermissionError(RuntimeError):
@@ -50,8 +60,69 @@ class Group(Base):
 
     users = relationship("Permission", back_populates="group")
 
+    messages = relationship("Message", secondary="messages_groups_match")
+
     def __repr__(self) -> str:
         return f"<Group {self.title} users: {len(self.users)}>"
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True)
+
+    user = relationship("User")
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    groups = relationship("Group", secondary="messages_groups_match")
+
+    tg_id = Column(Integer)
+    time = Column(DateTime)
+
+    deadline = relationship("Deadline", back_populates="msg")
+
+    keywords = relationship("Keyword", secondary="messages_keywords_match")
+
+    def save_keywords(self, words: Set[str]):
+        session = SessionGetter.object_session(self)
+
+        def get_obj(word: str) -> List[Keyword]:
+            return session.query(Keyword).filter_by(word=word).all()
+
+        lists: List[List[Keyword]] = list(map(get_obj, words))
+        old = reduce(lambda x, y: x+y, lists)
+        old_words = set(map(lambda x: x.word, old))
+        new_words = words - old_words
+        new = list(map(lambda x: Keyword(word=x, messages=[self]), new_words))
+        print(f"old were {old_words} adding {new_words}")
+        add_to_database(list(new), session)
+
+        self.keywords = old+new
+
+    def __repr__(self) -> str:
+        ret = f"<Message {self.tg_id}."
+        if self.deadline is not None:
+            ret += f"Due to {self.deadline.time.isoformat()}."
+
+        return ret + ">"
+
+
+class Deadline(Base):
+    __tablename__ = "deadlines"
+    id = Column(Integer, primary_key=True)
+    msg = relationship("Message", back_populates="deadline")
+    msg_id = Column(Integer, ForeignKey("messages.id"))
+    time = Column(DateTime)
+
+    def __repr__(self):
+        return f"<From {self.msg.user.tg_id} due to {self.time.isoformat()}>"
+
+
+class Keyword(Base):
+    __tablename__ = "keywords"
+    id = Column(Integer, primary_key=True)
+    word = Column(Text, unique=True)
+
+    messages = relationship("Message", secondary="messages_keywords_match")
 
 
 class User(Base):
