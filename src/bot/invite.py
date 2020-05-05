@@ -108,7 +108,7 @@ def cancel_invitation(update, context):
 
 invite_conversation = ConversationHandler(
     entry_points=[CommandHandler("invite", invite_entry)],
-    states={"GET_PERMISSIONS": [MessageHandler(Filters.text, invite_permissions)]},
+    states={"GET_PERMISSIONS": [MessageHandler(Filters.text & (~Filters.command), invite_permissions)]},
     fallbacks=[CommandHandler("cancel", cancel_invitation)],
 )
 

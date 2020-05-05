@@ -9,6 +9,7 @@ from .start import *
 from .create_group import *
 from .invite import *
 from .join import *
+from .send import *
 
 from .exc import *
 
